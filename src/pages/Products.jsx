@@ -209,7 +209,7 @@ export default function Products() {
           />
           <input
             className="border rounded-lg p-2 w-full"
-            placeholder="Category"
+            placeholder="Quantity"
             value={form.category}
             onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
           />

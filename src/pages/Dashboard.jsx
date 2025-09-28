@@ -66,28 +66,18 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Search Bar
-      <div className="mb-6">
-        <input
-          type="text"
-          placeholder="Search Products..."
-          className="w-full sm:w-1/3 border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div> */}
-
       {/* Search Bar with Voice Search */}
-<div className="mb-6 flex items-center gap-2">
+
+  {/* Voice Button */}
+ {/* Search Bar with Voice Input */}
+<div className="mb-6 flex items-center gap-2 w-full sm:w-1/2 bg-white border border-gray-300 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-blue-400 px-3">
   <input
     type="text"
     placeholder="Search Products..."
-    className="w-full sm:w-1/3 border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+    className="flex-1 p-2 focus:outline-none text-gray-700"
     value={search}
     onChange={(e) => setSearch(e.target.value)}
   />
-
-  {/* Voice Button */}
   <button
     type="button"
     onClick={() => {
@@ -107,17 +97,20 @@ export default function Dashboard() {
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-        setSearch(transcript); // set the recognized text in search
+        setSearch(transcript);
       };
 
       recognition.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
       };
     }}
-    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+    title="Speak to search"
   >
     🎤
   </button>
+
+
 </div>
 
 
@@ -133,7 +126,7 @@ export default function Dashboard() {
           <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 mb-4">
             🛒 Products
           </h2>
-  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ">
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ">
   {filteredProducts.length > 0 ? (
     filteredProducts.map((p) => (
       <div
@@ -160,7 +153,7 @@ export default function Dashboard() {
 
         {/* Name + Quantity Row */}
         <div className="mt-3 flex justify-between items-center">
-          <h3 className="font-bold text-gray-900 text-base truncate">
+          <h3 className="font-bold text-gray-900 text-base ">
             {p.name}
           </h3>
           <span className="text-s bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
