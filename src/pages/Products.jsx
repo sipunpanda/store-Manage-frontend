@@ -197,12 +197,14 @@ export default function Products() {
           </select>
 
           <div className="flex flex-col">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImage} // No capture to allow upload or camera
-              className="border rounded-lg p-2 w-full"
-            />
+          <input
+  type="file"
+  accept="image/*"
+  capture="environment" // allows camera on mobile, ignored on desktop
+  onChange={handleImage}
+  className="border rounded-lg p-2 w-full"
+/>
+
             {preview && (
               <img
                 src={preview}
