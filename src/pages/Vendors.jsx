@@ -1,36 +1,80 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-const API = 'https://store-manage-backend.onrender.com/api';
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import axios from "axios";
+
+const API = "https://store-manage-backend.onrender.com/api";
 
 export default function Vendors() {
   const [vendors, setVendors] = useState([]);
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const [editId, setEditId] = useState(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState("");
 
-  const fetchVendors = async () => {
-    const res = await axios.get(`${API}/vendors`);
-    setVendors(res.data);
-  };
-
-  useEffect(() => { fetchVendors(); }, []);
-
-  const handleAdd = async () => {
-    if (!name) return alert('Enter name');
-    if (editId) {
-      await axios.put(`${API}/vendors/${editId}`, { name });
-      setEditId(null);
-    } else {
-      await axios.post(`${API}/vendors`, { name });
+  // ✅ Fetch Vendors
+  const fetchVendors = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await axios.get(`${API}/vendors`);
+      setVendors(res.data || []);
+    } catch (err) {
+      setError("Failed to load vendors. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setName('');
+  }, []);
+
+  useEffect(() => {
     fetchVendors();
+  }, [fetchVendors]);
+
+  // ✅ Add / Update Vendor
+  const handleAdd = async () => {
+    if (!name.trim()) return alert("Enter name");
+    try {
+      setProcessing(true);
+      if (editId) {
+        await axios.put(`${API}/vendors/${editId}`, { name });
+        setEditId(null);
+      } else {
+        await axios.post(`${API}/vendors`, { name });
+      }
+      setName("");
+      fetchVendors();
+    } catch {
+      alert("Error saving vendor");
+    } finally {
+      setProcessing(false);
+    }
   };
 
-  const handleEdit = (vendor) => { setName(vendor.name); setEditId(vendor._id); };
-  const handleDelete = async (id) => { await axios.delete(`${API}/vendors/${id}`); fetchVendors(); };
+  // ✅ Edit Vendor
+  const handleEdit = (vendor) => {
+    setName(vendor.name);
+    setEditId(vendor._id);
+  };
 
-  const filteredVendors = vendors.filter(v => v.name.toLowerCase().includes(search.toLowerCase()));
+  // ✅ Delete Vendor
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this vendor?")) return;
+    try {
+      setProcessing(true);
+      await axios.delete(`${API}/vendors/${id}`);
+      fetchVendors();
+    } catch {
+      alert("Error deleting vendor");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // ✅ Optimized Filtering
+  const filteredVendors = useMemo(() => {
+    const query = search.toLowerCase();
+    return vendors.filter((v) => v.name.toLowerCase().includes(query));
+  }, [vendors, search]);
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -47,11 +91,18 @@ export default function Vendors() {
         />
         <button
           onClick={handleAdd}
+          disabled={processing}
           className={`px-4 py-2 rounded-lg text-white ${
-            editId ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-blue-600 hover:bg-blue-700'
-          } transition`}
+            editId
+              ? "bg-yellow-500 hover:bg-yellow-600"
+              : "bg-blue-600 hover:bg-blue-700"
+          } transition disabled:opacity-50`}
         >
-          {editId ? 'Update Vendor' : 'Add Vendor'}
+          {processing
+            ? "Processing..."
+            : editId
+            ? "Update Vendor"
+            : "Add Vendor"}
         </button>
       </div>
 
@@ -66,35 +117,45 @@ export default function Vendors() {
         />
       </div>
 
+      {/* Loading / Error */}
+      {loading && <p className="text-gray-500">Loading vendors...</p>}
+      {error && <p className="text-red-600">{error}</p>}
+
       {/* Vendors Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {filteredVendors.length > 0 ? (
-          filteredVendors.map((v) => (
+      {!loading && filteredVendors.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filteredVendors.map((v) => (
             <div
               key={v._id}
               className="bg-white rounded-xl shadow-md p-4 flex flex-col items-center justify-center text-center border border-gray-100 hover:shadow-lg transition"
             >
-              <h2 className="text-lg font-semibold text-gray-800 truncate w-full">{v.name}</h2>
+              <h2 className="text-lg font-semibold text-gray-800 truncate w-full">
+                {v.name}
+              </h2>
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={() => handleEdit(v)}
-                  className="px-3 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition text-sm"
+                  disabled={processing}
+                  className="px-3 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition text-sm disabled:opacity-50"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => handleDelete(v._id)}
-                  className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+                  disabled={processing}
+                  className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm disabled:opacity-50"
                 >
                   Delete
                 </button>
               </div>
             </div>
-          ))
-        ) : (
-          <p className="col-span-full text-center text-gray-500 mt-4">No vendors found</p>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : (
+        !loading && (
+          <p className="text-center text-gray-500 mt-4">No vendors found</p>
+        )
+      )}
     </div>
   );
 }
