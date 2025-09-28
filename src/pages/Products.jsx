@@ -106,7 +106,9 @@ export default function Products() {
 
   // Edit Product
   const handleEdit = (p) => {
-    setForm({ ...p, image: null });
+    
+    
+    setForm({ ...p,vendor:p.vendor._id, image: null });
     setPreview(
       p.imageUrl?.startsWith('http')
         ? p.imageUrl
@@ -119,6 +121,7 @@ export default function Products() {
 
   // Delete Product
   const handleDelete = async (id) => {
+    prompt('Are you sure you want to delete this product?');
     try {
       await axios.delete(`${API}/products/${id}`);
       fetchProducts();
@@ -142,7 +145,7 @@ export default function Products() {
       <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">📦 Products</h1>
 
       {/* Search Bar */}
-      <div className="mb-4">
+      {/* <div className="mb-4">
         <input
           type="text"
           placeholder="🔍 Search by name or category"
@@ -150,7 +153,50 @@ export default function Products() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-      </div>
+      </div> */}
+      {/* Search Bar with Voice Search */}
+<div className="mb-6 flex items-center gap-2">
+  <input
+    type="text"
+    placeholder="Search Products..."
+    className="w-full sm:w-1/3 border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+  />
+
+  {/* Voice Button */}
+  <button
+    type="button"
+    onClick={() => {
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech Recognition not supported in this browser.");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.start();
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setSearch(transcript); // set the recognized text in search
+      };
+
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+      };
+    }}
+    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+  >
+    🎤
+  </button>
+</div>
+
 
       {/* Form Section */}
       <div className="bg-white shadow-md rounded-xl p-4 sm:p-6 mb-6">

@@ -66,7 +66,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Search Bar */}
+      {/* Search Bar
       <div className="mb-6">
         <input
           type="text"
@@ -75,7 +75,51 @@ export default function Dashboard() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-      </div>
+      </div> */}
+
+      {/* Search Bar with Voice Search */}
+<div className="mb-6 flex items-center gap-2">
+  <input
+    type="text"
+    placeholder="Search Products..."
+    className="w-full sm:w-1/3 border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+  />
+
+  {/* Voice Button */}
+  <button
+    type="button"
+    onClick={() => {
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech Recognition not supported in this browser.");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.start();
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setSearch(transcript); // set the recognized text in search
+      };
+
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+      };
+    }}
+    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+  >
+    🎤
+  </button>
+</div>
+
 
       {/* Loading / Error */}
       {loading && (
@@ -89,7 +133,7 @@ export default function Dashboard() {
           <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 mb-4">
             🛒 Products
           </h2>
-  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ">
+  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ">
   {filteredProducts.length > 0 ? (
     filteredProducts.map((p) => (
       <div
