@@ -1,3 +1,5 @@
+//version 2 optimized with local caching 
+
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 
@@ -9,52 +11,102 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
+  // ✅ Load from cache first
   useEffect(() => {
+    const cachedVendors = localStorage.getItem("vendors");
+    const cachedProducts = localStorage.getItem("products");
+    const cacheTime = localStorage.getItem("cacheTime");
+
+    if (cachedVendors && cachedProducts) {
+      setVendors(JSON.parse(cachedVendors));
+      setProducts(JSON.parse(cachedProducts));
+      setLoading(false);
+      if (cacheTime) setLastUpdated(new Date(parseInt(cacheTime)).toLocaleTimeString());
+    }
+
     const fetchData = async () => {
       try {
-        setLoading(true);
-        setError("");
         const [vendorsRes, productsRes] = await Promise.all([
           axios.get(`${API}/vendors`),
           axios.get(`${API}/products`),
         ]);
+
         setVendors(vendorsRes.data || []);
         setProducts(productsRes.data || []);
+        localStorage.setItem("vendors", JSON.stringify(vendorsRes.data || []));
+        localStorage.setItem("products", JSON.stringify(productsRes.data || []));
+        const now = Date.now();
+        localStorage.setItem("cacheTime", now);
+        setLastUpdated(new Date(now).toLocaleTimeString());
       } catch (err) {
-        setError("Failed to load dashboard data. Please try again.");
+        setError("⚠️ Failed to load latest data. Showing cached results.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    // Fetch new data if cache older than 10 min or empty
+    const now = Date.now();
+    if (!cacheTime || now - cacheTime > 10 * 60 * 1000) {
+      fetchData();
+    } else {
+      // silent background refresh
+      fetchData();
+    }
   }, []);
 
+  // 📊 Stats
   const stats = [
     { label: "Vendors", value: vendors.length },
     { label: "Products", value: products.length },
-    // { label: "Stock Items", value: totalStock },
   ];
 
-  // ✅ Optimized filtering
+  // 🔍 Optimized search
   const filteredProducts = useMemo(() => {
     const query = search.toLowerCase();
     return products.filter((p) => p.name.toLowerCase().includes(query));
   }, [products, search]);
 
+  // 🎤 Voice search handler
+  const handleVoiceSearch = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech Recognition not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.start();
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setSearch(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+    };
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">
         📊 Dashboard
       </h1>
 
-      {/* Stat Cards */}
+      {/* Stats */}
       <div className="flex flex-wrap gap-3 mb-6 justify-start">
         {stats.map((stat, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-4 flex-1 min-w-[100px] sm:min-w-[150px] text-center"
+            className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-4 flex-1 min-w-[120px] sm:min-w-[160px] text-center"
           >
             <h2 className="text-xl sm:text-2xl font-extrabold text-blue-600">
               {stat.value}
@@ -66,118 +118,280 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Search Bar with Voice Search */}
+      {/* Search with voice input */}
+      <div className="mb-6 flex items-center gap-2 w-full sm:w-1/2 bg-white border border-gray-300 rounded-lg shadow-sm px-3">
+        <input
+          type="text"
+          placeholder="Search Products..."
+          className="flex-1 p-2 focus:outline-none text-gray-700"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={handleVoiceSearch}
+          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+          title="Speak to search"
+        >
+          🎤
+        </button>
+      </div>
 
-  {/* Voice Button */}
- {/* Search Bar with Voice Input */}
-<div className="mb-6 flex items-center gap-2 w-full sm:w-1/2 bg-white border border-gray-300 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-blue-400 px-3">
-  <input
-    type="text"
-    placeholder="Search Products..."
-    className="flex-1 p-2 focus:outline-none text-gray-700"
-    value={search}
-    onChange={(e) => setSearch(e.target.value)}
-  />
-  <button
-    type="button"
-    onClick={() => {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("Speech Recognition not supported in this browser.");
-        return;
-      }
-
-      const recognition = new SpeechRecognition();
-      recognition.lang = "en-US";
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      recognition.start();
-
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setSearch(transcript);
-      };
-
-      recognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
-      };
-    }}
-    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
-    title="Speak to search"
-  >
-    🎤
-  </button>
-
-
-</div>
-
-
-      {/* Loading / Error */}
-      {loading && (
-        <p className="text-gray-500 text-center">Loading dashboard...</p>
+      {/* Status info */}
+      {loading && <p className="text-gray-500 text-center">Loading...</p>}
+      {error && <p className="text-yellow-600 text-center">{error}</p>}
+      {lastUpdated && !loading && (
+        <p className="text-gray-500 text-center text-sm mb-4">
+          Last updated at {lastUpdated}
+        </p>
       )}
-      {error && <p className="text-red-600 text-center">{error}</p>}
 
-      {/* Products Preview */}
+      {/* Product cards */}
       {!loading && (
         <div>
           <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 mb-4">
             🛒 Products
           </h2>
-  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ">
-  {filteredProducts.length > 0 ? (
-    filteredProducts.map((p) => (
-      <div
-        key={p._id}
-        className="bg-gray-200 rounded-xl shadow-md hover:shadow-lg transition p-4 flex flex-col border border-gray-200"
-      >
-        {/* Product Image */}
-        <div className="w-full h-36 bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden">
-          {p.imageUrl ? (
-            <img
-              src={
-                p.imageUrl.startsWith("http")
-                  ? p.imageUrl
-                  : `${API}/${p.imageUrl}`
-              }
-              alt={p.name}
-              className="w-full h-full object-contain rounded-lg"
-              loading="lazy"
-            />
-          ) : (
-            <span className="text-gray-400 text-sm">No Image</span>
-          )}
-        </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map((p) => (
+                <div
+                  key={p._id}
+                  className="bg-gray-200 rounded-xl shadow-md hover:shadow-lg transition p-4 flex flex-col border border-gray-200"
+                >
+                  <div className="w-full h-36 bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden">
+                    {p.imageUrl ? (
+                      <img
+                        src={
+                          p.imageUrl.startsWith("http")
+                            ? p.imageUrl
+                            : `${API}/${p.imageUrl}`
+                        }
+                        alt={p.name}
+                        className="w-full h-full object-contain rounded-lg"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="text-gray-400 text-sm">No Image</span>
+                    )}
+                  </div>
 
-        {/* Name + Quantity Row */}
-        <div className="mt-3 flex justify-between items-center">
-          <h3 className="font-bold text-gray-900 text-base ">
-            {p.name}
-          </h3>
-          <span className="text-s bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
-            {p.category}
-          </span>
-        </div>
+                  <div className="mt-3 flex justify-between items-center">
+                    <h3 className="font-bold text-gray-900 text-base">
+                      {p.name}
+                    </h3>
+                    <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                      {p.category}
+                    </span>
+                  </div>
 
-        {/* Price */}
-        <div className="mt-3">
-          <span className="text-lg sm:text-xl font-bold text-green-600">
-            ₹{p.sellingPrice || 0}
-          </span>
-        </div>
-      </div>
-    ))
-  ) : (
-    <p className="col-span-full text-center text-gray-500 mt-2 text-sm">
-      No products found
-    </p>
-  )}
-</div>
-
+                  <div className="mt-2">
+                    <span className="text-lg font-bold text-green-600">
+                      ₹{p.sellingPrice || 0}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="col-span-full text-center text-gray-500 mt-2 text-sm">
+                No products found
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+
+
+
+
+
+
+// version 1
+
+// import React, { useEffect, useState, useMemo } from "react";
+// import axios from "axios";
+
+// const API = "https://store-manage-backend.onrender.com/api";
+
+// export default function Dashboard() {
+//   const [vendors, setVendors] = useState([]);
+//   const [products, setProducts] = useState([]);
+//   const [search, setSearch] = useState("");
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+
+//   useEffect(() => {
+//     const fetchData = async () => {
+//       try {
+//         setLoading(true);
+//         setError("");
+//         const [vendorsRes, productsRes] = await Promise.all([
+//           axios.get(`${API}/vendors`),
+//           axios.get(`${API}/products`),
+//         ]);
+//         setVendors(vendorsRes.data || []);
+//         setProducts(productsRes.data || []);
+//       } catch (err) {
+//         setError("Failed to load dashboard data. Please try again.");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchData();
+//   }, []);
+
+//   const stats = [
+//     { label: "Vendors", value: vendors.length },
+//     { label: "Products", value: products.length },
+//     // { label: "Stock Items", value: totalStock },
+//   ];
+
+//   // ✅ Optimized filtering
+//   const filteredProducts = useMemo(() => {
+//     const query = search.toLowerCase();
+//     return products.filter((p) => p.name.toLowerCase().includes(query));
+//   }, [products, search]);
+
+//   return (
+//     <div className="min-h-screen bg-gray-100 p-4 sm:p-6">
+//       <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">
+//         📊 Dashboard
+//       </h1>
+
+//       {/* Stat Cards */}
+//       <div className="flex flex-wrap gap-3 mb-6 justify-start">
+//         {stats.map((stat, idx) => (
+//           <div
+//             key={idx}
+//             className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-4 flex-1 min-w-[100px] sm:min-w-[150px] text-center"
+//           >
+//             <h2 className="text-xl sm:text-2xl font-extrabold text-blue-600">
+//               {stat.value}
+//             </h2>
+//             <p className="mt-1 text-gray-600 text-sm sm:text-base">
+//               {stat.label}
+//             </p>
+//           </div>
+//         ))}
+//       </div>
+
+//       {/* Search Bar with Voice Search */}
+
+//   {/* Voice Button */}
+//  {/* Search Bar with Voice Input */}
+// <div className="mb-6 flex items-center gap-2 w-full sm:w-1/2 bg-white border border-gray-300 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-blue-400 px-3">
+//   <input
+//     type="text"
+//     placeholder="Search Products..."
+//     className="flex-1 p-2 focus:outline-none text-gray-700"
+//     value={search}
+//     onChange={(e) => setSearch(e.target.value)}
+//   />
+//   <button
+//     type="button"
+//     onClick={() => {
+//       const SpeechRecognition =
+//         window.SpeechRecognition || window.webkitSpeechRecognition;
+//       if (!SpeechRecognition) {
+//         alert("Speech Recognition not supported in this browser.");
+//         return;
+//       }
+
+//       const recognition = new SpeechRecognition();
+//       recognition.lang = "en-US";
+//       recognition.interimResults = false;
+//       recognition.maxAlternatives = 1;
+
+//       recognition.start();
+
+//       recognition.onresult = (event) => {
+//         const transcript = event.results[0][0].transcript;
+//         setSearch(transcript);
+//       };
+
+//       recognition.onerror = (event) => {
+//         console.error("Speech recognition error:", event.error);
+//       };
+//     }}
+//     className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+//     title="Speak to search"
+//   >
+//     🎤
+//   </button>
+
+
+// </div>
+
+
+//       {/* Loading / Error */}
+//       {loading && (
+//         <p className="text-gray-500 text-center">Loading dashboard...</p>
+//       )}
+//       {error && <p className="text-red-600 text-center">{error}</p>}
+
+//       {/* Products Preview */}
+//       {!loading && (
+//         <div>
+//           <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 mb-4">
+//             🛒 Products
+//           </h2>
+//   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ">
+//   {filteredProducts.length > 0 ? (
+//     filteredProducts.map((p) => (
+//       <div
+//         key={p._id}
+//         className="bg-gray-200 rounded-xl shadow-md hover:shadow-lg transition p-4 flex flex-col border border-gray-200"
+//       >
+//         {/* Product Image */}
+//         <div className="w-full h-36 bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden">
+//           {p.imageUrl ? (
+//             <img
+//               src={
+//                 p.imageUrl.startsWith("http")
+//                   ? p.imageUrl
+//                   : `${API}/${p.imageUrl}`
+//               }
+//               alt={p.name}
+//               className="w-full h-full object-contain rounded-lg"
+//               loading="lazy"
+//             />
+//           ) : (
+//             <span className="text-gray-400 text-sm">No Image</span>
+//           )}
+//         </div>
+
+//         {/* Name + Quantity Row */}
+//         <div className="mt-3 flex justify-between items-center">
+//           <h3 className="font-bold text-gray-900 text-base ">
+//             {p.name}
+//           </h3>
+//           <span className="text-s bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+//             {p.category}
+//           </span>
+//         </div>
+
+//         {/* Price */}
+//         <div className="mt-3">
+//           <span className="text-lg sm:text-xl font-bold text-green-600">
+//             ₹{p.sellingPrice || 0}
+//           </span>
+//         </div>
+//       </div>
+//     ))
+//   ) : (
+//     <p className="col-span-full text-center text-gray-500 mt-2 text-sm">
+//       No products found
+//     </p>
+//   )}
+// </div>
+
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
